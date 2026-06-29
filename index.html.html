@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue Tracking Dashboard – SP Light &amp; Night</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f8f7; --surface: #ffffff; --surface2: #f2f1ec;
+    --text: #0b0b0b; --text2: #52514e; --text3: #898781;
+    --border: rgba(11,11,11,0.10); --radius: 8px;
+    --blue: #2a78d6; --green: #1baf7a; --amber: #ba7517;
+    --red: #e34948; --purple: #4a3aa7;
+    --bg-blue: #e6f1fb; --bg-green: #eaf3de; --bg-amber: #faeeda;
+    --bg-red: #fcebeb; --bg-purple: #eeedfe;
+    --txt-blue: #0c447c; --txt-green: #27500a; --txt-amber: #633806;
+    --txt-red: #791f1f; --txt-purple: #3c3489;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110; --surface: #1c1c1b; --surface2: #252523;
+      --text: #ffffff; --text2: #c3c2b7; --text3: #898781;
+      --border: rgba(255,255,255,0.10);
+      --bg-blue: #042c53; --bg-green: #173404; --bg-amber: #412402;
+      --bg-red: #501313; --bg-purple: #26215c;
+      --txt-blue: #b5d4f4; --txt-green: #c0dd97; --txt-amber: #fac775;
+      --txt-red: #f7c1c1; --txt-purple: #cecbf6;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .header h1 { font-size: 20px; font-weight: 500; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-text { font-size: 12px; color: var(--text3); }
+  .btn-refresh { font-size: 12px; padding: 5px 12px; border: 0.5px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text2); cursor: pointer; }
+  .btn-refresh:hover { background: var(--surface2); }
+  .input-url { font-size: 12px; padding: 5px 10px; border: 0.5px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); width: 320px; outline: none; }
+  .input-url:focus { border-color: var(--blue); }
+  label { font-size: 12px; color: var(--text3); }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .kpi { background: var(--surface2); border-radius: var(--radius); padding: 12px 14px; }
+  .kpi-lbl { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .kpi-val { font-size: 28px; font-weight: 500; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .kpi.c-red .kpi-val { color: var(--red); }
+  .kpi.c-green .kpi-val { color: var(--green); }
+  .kpi.c-amber .kpi-val { color: var(--amber); }
+  .kpi.c-blue .kpi-val { color: var(--blue); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card-title { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 14px; }
+  .chart-wrap { position: relative; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bar-lbl { font-size: 12px; color: var(--text2); width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-bg { flex: 1; height: 12px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; }
+  .bar-num { font-size: 12px; color: var(--text3); width: 28px; text-align: right; flex-shrink: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; font-size: 11px; color: var(--text2); }
+  .leg { display: flex; align-items: center; gap: 4px; }
+  .leg-sq { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; min-width: 600px; }
+  th { font-size: 11px; font-weight: 500; color: var(--text3); text-align: left; padding: 0 8px 8px 0; border-bottom: 0.5px solid var(--border); white-space: nowrap; overflow: hidden; }
+  td { padding: 7px 8px 7px 0; border-bottom: 0.5px solid var(--border); color: var(--text2); vertical-align: top; overflow: hidden; }
+  td:first-child { color: var(--text); }
+  td.td-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+  td.td-pill { white-space: nowrap; }
+  .pill { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500; white-space: nowrap; display: inline-block; }
+  .p-open { background: var(--bg-red); color: var(--txt-red); }
+  .p-closed { background: var(--bg-green); color: var(--txt-green); }
+  .p-wait { background: var(--bg-amber); color: var(--txt-amber); }
+  .p-check { background: var(--bg-blue); color: var(--txt-blue); }
+  .p-gameplay { background: var(--bg-purple); color: var(--txt-purple); }
+  .error-box { background: var(--bg-amber); color: var(--txt-amber); border-radius: var(--radius); padding: 12px 16px; font-size: 13px; margin-bottom: 16px; }
+  .setup-box { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .setup-box h2 { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+  .setup-box p { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+  .setup-box ol { font-size: 13px; color: var(--text2); line-height: 1.8; padding-left: 18px; margin-bottom: 10px; }
+  .setup-box code { background: var(--surface2); border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 12px; color: var(--text); }
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 16px 0; }
+  @media (max-width: 600px) { .grid2, .grid3 { grid-template-columns: 1fr; } .input-url { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1>Issue Tracking · SP Light &amp; Night</h1>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">CS × OP Dashboard</div>
+    </div>
+    <div class="header-right">
+      <div class="pulse" id="pulse-dot"></div>
+      <span class="status-text" id="status-text">Chưa kết nối</span>
+      <button class="btn-refresh" onclick="fetchData()">↻ Làm mới</button>
+    </div>
+  </div>
+
+  <div class="setup-box" id="setup-box">
+    <h2>Kết nối với Google Sheets</h2>
+    <p>Dán URL Web App từ Google Apps Script vào đây để dashboard tự động lấy dữ liệu realtime mỗi 30 giây.</p>
+    <ol>
+      <li>Mở file Sheets → <strong>Extensions → Apps Script</strong></li>
+      <li>Tạo file <code>Code.gs</code> mới, dán nội dung từ file <code>Code.gs</code> đi kèm</li>
+      <li>Nhấn <strong>Deploy → New deployment → Web App</strong></li>
+      <li>Đặt <em>Execute as</em>: <strong>Me</strong> · <em>Who has access</em>: <strong>Anyone</strong></li>
+      <li>Nhấn Deploy → Copy URL → Dán vào ô bên dưới</li>
+    </ol>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="api-url" class="input-url" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
+      <button class="btn-refresh" onclick="saveAndFetch()">Kết nối</button>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3)">URL được lưu trong trình duyệt, không cần nhập lại lần sau.</div>
+  </div>
+
+  <div id="error-area"></div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-lbl">Tổng case</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-sub">Sheet chính</div></div>
+    <div class="kpi c-red"><div class="kpi-lbl">Cần OP kiểm tra</div><div class="kpi-val" id="kpi-open">—</div><div class="kpi-sub">Đang chờ xử lý</div></div>
+    <div class="kpi c-green"><div class="kpi-lbl">Đã đóng</div><div class="kpi-val" id="kpi-closed">—</div><div class="kpi-sub">Hoàn tất</div></div>
+    <div class="kpi c-amber"><div class="kpi-lbl">Chờ KH phản hồi</div><div class="kpi-val" id="kpi-wait">—</div><div class="kpi-sub">Pending</div></div>
+    <div class="kpi c-blue"><div class="kpi-lbl">Góp ý (feedback)</div><div class="kpi-val" id="kpi-fb">—</div><div class="kpi-sub">CS Note sheet</div></div>
+    <div class="kpi"><div class="kpi-lbl">Cập nhật lúc</div><div class="kpi-val" style="font-size:16px" id="kpi-time">—</div><div class="kpi-sub" id="kpi-next">—</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Phân loại vấn đề</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-cat" role="img" aria-label="Biểu đồ phân loại vấn đề">Đang tải...</canvas></div>
+      <div class="legend" id="leg-cat"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Trạng thái xử lý</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-status" role="img" aria-label="Biểu đồ trạng thái case">Đang tải...</canvas></div>
+      <div class="legend" id="leg-status"></div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title">Kênh tiếp nhận</div>
+      <div id="ch-channel"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ngôn ngữ KH</div>
+      <div id="ch-lang"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Xu hướng 7 ngày gần nhất</div>
+      <div class="chart-wrap" style="height:140px"><canvas id="c-trend" role="img" aria-label="Xu hướng case theo ngày">Đang tải...</canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin-bottom:0">Case đang mở – cần xử lý</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label for="filter-cat">Loại:</label>
+        <select id="filter-cat" style="font-size:12px;padding:3px 8px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text)" onchange="renderTable()">
+          <option value="">Tất cả</option>
+          <option value="Technical">Technical</option>
+          <option value="Gameplay">Gameplay</option>
+          <option value="Sự kiện">Sự kiện</option>
+          <option value="Tài khoản">Tài khoản</option>
+          <option value="Nạp">Nạp/TT</option>
+          <option value="Báo lỗi">Báo lỗi</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <colgroup><col style="width:34px"><col style="width:72px"><col style="width:140px"><col><col style="width:96px"><col style="width:130px"></colgroup>
+        <thead><tr>
+          <th>#</th><th>Ngày</th><th>Ticket</th><th>Mô tả</th><th>Phân loại</th><th>Trạng thái</th>
+        </tr></thead>
+        <tbody id="open-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var COLORS = ['#2a78d6','#1baf7a','#eda100','#e34948','#4a3aa7','#e87ba4','#eb6834','#888780'];
+var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+var gridC = isDark ? '#2c2c2a' : '#e1e0d9';
+var textC = isDark ? '#c3c2b7' : '#898781';
+var charts = {};
+var allCases = [];
+var countdown = 30;
+var timer;
+
+function $(id) { return document.getElementById(id); }
+
+function loadStoredUrl() {
+  var saved = localStorage.getItem('ln_api_url');
+  if (saved) { $('api-url').value = saved; }
+}
+
+function saveAndFetch() {
+  var url = $('api-url').value.trim();
+  if (!url) return;
+  localStorage.setItem('ln_api_url', url);
+  fetchData();
+}
+
+function getApiUrl() {
+  return $('api-url').value.trim() || localStorage.getItem('ln_api_url') || '';
+}
+
+function setStatus(text, ok) {
+  $('status-text').textContent = text;
+  $('pulse-dot').style.background = ok ? '#1baf7a' : (ok === null ? '#eda100' : '#e34948');
+}
+
+function fetchData() {
+  var url = getApiUrl();
+  if (!url) { setStatus('Chưa có URL', false); return; }
+
+  setStatus('Đang tải...', null);
+  $('error-area').innerHTML = '';
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      $('setup-box').style.display = 'none';
+      processData(data);
+      setStatus('Realtime · cập nhật tự động', true);
+      startCountdown();
+    })
+    .catch(function(err) {
+      setStatus('Lỗi kết nối', false);
+      $('error-area').innerHTML = '<div class="error-box">Không kết nối được: ' + err.message + '<br>Kiểm tra lại URL và quyền truy cập (Anyone).</div>';
+    });
+}
+
+function startCountdown() {
+  clearInterval(timer);
+  countdown = 30;
+  $('kpi-next').textContent = 'làm mới sau ' + countdown + 's';
+  timer = setInterval(function() {
+    countdown--;
+    if (countdown <= 0) {
+      fetchData();
+      return;
+    }
+    $('kpi-next').textContent = 'làm mới sau ' + countdown + 's';
+  }, 1000);
+}
+
+function processData(data) {
+  var now = new Date(data.lastUpdated);
+  $('kpi-time').textContent = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+
+  var cases = parseCases(data.cases || []);
+  allCases = cases;
+
+  var total = cases.length;
+  var openC = cases.filter(function(c){ return normalizeStatus(c.status) === 'Cần OP kiểm tra'; }).length;
+  var closed = cases.filter(function(c){ return normalizeStatus(c.status) === 'Đóng case'; }).length;
+  var wait = cases.filter(function(c){ return normalizeStatus(c.status) === 'Chờ KH'; }).length;
+
+  $('kpi-total').textContent = total;
+  $('kpi-open').textContent = openC;
+  $('kpi-closed').textContent = closed;
+  $('kpi-wait').textContent = wait;
+  $('kpi-fb').textContent = data.feedbackCount || (data.feedback ? data.feedback.length : '—');
+
+  renderCharts(cases);
+  renderBars(cases);
+  renderTable();
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  var s = val.toString();
+  var m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) return m[1].padStart(2,'0') + '/' + m[2].padStart(2,'0');
+  if (s.indexOf('Jan') !== -1 || s.indexOf('Feb') !== -1 || s.indexOf('Mar') !== -1 || s.indexOf('Apr') !== -1 || s.indexOf('May') !== -1 || s.indexOf('Jun') !== -1 || s.indexOf('Jul') !== -1 || s.indexOf('Aug') !== -1 || s.indexOf('Sep') !== -1 || s.indexOf('Oct') !== -1 || s.indexOf('Nov') !== -1 || s.indexOf('Dec') !== -1) {
+    try {
+      var d = new Date(s);
+      if (!isNaN(d)) return (d.getDate()+'').padStart(2,'0') + '/' + ((d.getMonth()+1)+'').padStart(2,'0');
+    } catch(e){}
+  }
+  return s.slice(0,10);
+}
+
+function parseCases(raw) {
+  return raw.map(function(row) {
+    return {
+      stt: row[0] || '',
+      date: formatDate(row[1]),
+      channel: row[2] || '',
+      ticket: row[3] || '',
+      lang: row[4] || '',
+      desc: row[7] || '',
+      category: row[9] || '',
+      status: row[10] || '',
+      raw: row
+    };
+  }).filter(function(c){ return c.date || c.ticket; });
+}
+
+function normalizeStatus(s) {
+  if (!s) return 'Không rõ';
+  var t = s.toLowerCase();
+  if (t.indexOf('đóng') !== -1 || t.indexOf('dong case') !== -1) return 'Đóng case';
+  if (t.indexOf('cần op') !== -1 || t.indexOf('can op') !== -1 || t.indexOf('kiểm tra lại') !== -1) return 'Cần OP kiểm tra';
+  if (t.indexOf('chờ kh') !== -1 || t.indexOf('cho kh') !== -1) return 'Chờ KH';
+  if (t.indexOf('double') !== -1) return 'Double check';
+  if (t.indexOf('op đã phản hồi') !== -1) return 'OP đã phản hồi';
+  if (t.indexOf('cs đã phản hồi') !== -1) return 'CS đã phản hồi';
+  if (t.indexOf('reject') !== -1) return 'Reject';
+  return s.trim() || 'Khác';
+}
+
+function countBy(cases, fn) {
+  var map = {};
+  cases.forEach(function(c) {
+    var key = fn(c) || 'Khác';
+    map[key] = (map[key] || 0) + 1;
+  });
+  return map;
+}
+
+function renderCharts(cases) {
+  var catMap = countBy(cases, function(c){ return c.category || 'Khác'; });
+  var statusMap = countBy(cases, function(c){ return normalizeStatus(c.status); });
+  makeDonut('c-cat', 'leg-cat', Object.keys(catMap), Object.values(catMap));
+  makeDonut('c-status', 'leg-status', Object.keys(statusMap), Object.values(statusMap));
+  makeTrend(cases);
+}
+
+function makeDonut(canvasId, legId, labels, data) {
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart($(canvasId), {
+    type: 'doughnut',
+    data: { labels: labels, datasets: [{ data: data, backgroundColor: COLORS.slice(0,data.length), borderWidth: 2, borderColor: isDark ? '#1c1c1b' : '#fff', hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx){ return ' ' + ctx.label + ': ' + ctx.raw; } } } } }
+  });
+  var leg = $(legId);
+  var tot = data.reduce(function(a,b){ return a+b; }, 0);
+  leg.innerHTML = labels.map(function(l,i){
+    return '<span class="leg"><span class="leg-sq" style="background:' + COLORS[i] + '"></span>' + l + ' ' + Math.round(data[i]/tot*100) + '%</span>';
+  }).join('');
+}
+
+function makeTrend(cases) {
+  var dateMap = {};
+  cases.forEach(function(c) {
+    var d = c.date;
+    if (!d) return;
+    d = d.replace(/\//g,'-').split(' ')[0].trim();
+    dateMap[d] = (dateMap[d] || 0) + 1;
+  });
+  var sorted = Object.keys(dateMap).sort();
+  var last7 = sorted.slice(-7);
+  var vals = last7.map(function(k){ return dateMap[k]; });
+
+  if (charts['c-trend']) charts['c-trend'].destroy();
+  charts['c-trend'] = new Chart($('c-trend'), {
+    type: 'bar',
+    data: { labels: last7, datasets: [{ label: 'Case', data: vals, backgroundColor: '#2a78d6', borderRadius: 3, borderSkipped: false }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: {
+      x: { ticks: { color: textC, font: { size: 10 }, autoSkip: false, maxRotation: 40 }, grid: { color: gridC }, border: { color: gridC } },
+      y: { ticks: { color: textC, font: { size: 10 } }, grid: { color: gridC }, border: { color: gridC } }
+    }}
+  });
+}
+
+function renderBars(cases) {
+  var chMap = countBy(cases, function(c){ return c.channel; });
+  var langMap = countBy(cases, function(c){ return c.lang; });
+  makeBars('ch-channel', chMap, ['#2a78d6','#1baf7a','#eda100','#888780']);
+  makeBars('ch-lang', langMap, ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#888780']);
+}
+
+function makeBars(elId, map, colors) {
+  var el = $(elId);
+  el.innerHTML = '';
+  var entries = Object.entries(map).sort(function(a,b){ return b[1]-a[1]; }).slice(0,6);
+  var max = entries.length ? entries[0][1] : 1;
+  entries.forEach(function(e, i) {
+    var pct = Math.round(e[1] / max * 100);
+    el.innerHTML += '<div class="bar-row"><span class="bar-lbl" title="'+e[0]+'">'+e[0]+'</span><div class="bar-bg"><div class="bar-fill" style="width:'+pct+'%;background:'+(colors[i]||'#888780')+'"></div></div><span class="bar-num">'+e[1]+'</span></div>';
+  });
+}
+
+function renderTable() {
+  var filter = $('filter-cat').value;
+  var open = allCases.filter(function(c) {
+    var ns = normalizeStatus(c.status);
+    var isOpen = ns === 'Cần OP kiểm tra' || ns === 'Double check' || ns === 'Chờ KH';
+    if (!isOpen) return false;
+    if (!filter) return true;
+    return c.category && c.category.indexOf(filter) !== -1;
+  });
+
+  var tbody = $('open-tbody');
+  tbody.innerHTML = '';
+  open.slice(0, 40).forEach(function(c, i) {
+    var cat = c.category || '';
+    var catCls = 'p-open';
+    if (cat.indexOf('Gameplay') !== -1) catCls = 'p-gameplay';
+    else if (cat.indexOf('Nạp') !== -1 || cat.indexOf('Thanh') !== -1) catCls = 'p-wait';
+    else if (cat.indexOf('Báo lỗi') !== -1) catCls = 'p-check';
+
+    var ns = normalizeStatus(c.status);
+    var statCls = 'p-open';
+    if (ns === 'Double check') statCls = 'p-check';
+    else if (ns === 'Chờ KH') statCls = 'p-wait';
+
+    var desc = (c.desc || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (desc.length > 80) desc = desc.slice(0,80) + '…';
+    var ticket = (c.ticket || '');
+    if (ticket.length > 22) ticket = ticket.slice(0,22) + '…';
+
+    tbody.innerHTML += '<tr>'
+      + '<td>' + (i+1) + '</td>'
+      + '<td style="white-space:nowrap;font-size:12px">' + (c.date||'') + '</td>'
+      + '<td style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.ticket||'') + '">' + ticket + '</td>'
+      + '<td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0" title="' + desc + '">' + desc + '</td>'
+      + '<td><span class="pill ' + catCls + '">' + cat + '</span></td>'
+      + '<td><span class="pill ' + statCls + '">' + ns + '</span></td>'
+      + '</tr>';
+  });
+  if (!open.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Không có case nào đang mở</td></tr>';
+}
+
+loadStoredUrl();
+if (getApiUrl()) {
+  fetchData();
+} else {
+  $('pulse-dot').style.background = '#888780';
+}
+</script>
+</body>
+</html>
