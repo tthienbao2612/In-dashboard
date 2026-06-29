@@ -196,7 +196,7 @@ var allCases = [];
 var countdown = 30;
 var timer;
 
-var HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbzL1UZWZNTnYUPP_EbEmUP7F5jlyiOkwy4dI96yy1pwiiTf20snVuGUSv9QDobTi86Sow/exec';
+var HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbwwIH5upqM1XcxWvVYldio312MDzu5mOS7LbdAg4NW8_iP-9awbNSRzmh7kEOhxmwfurQ/exec';
 
 function $(id) { return document.getElementById(id); }
 
@@ -230,21 +230,37 @@ function fetchData() {
   setStatus('Đang tải...', null);
   $('error-area').innerHTML = '';
 
-  fetch(url, { redirect: 'follow', mode: 'cors' })
-    .then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function(data) {
-      $('setup-box').style.display = 'none';
-      processData(data);
-      setStatus('Realtime · cập nhật tự động', true);
-      startCountdown();
-    })
-    .catch(function(err) {
-      setStatus('Lỗi kết nối', false);
-      $('error-area').innerHTML = '<div class="error-box">Không kết nối được: ' + err.message + '<br>Thử mở dashboard bằng Chrome hoặc dùng extension <b>Web Server for Chrome</b> thay vì mở file:// trực tiếp.</div>';
-    });
+  // Dùng JSONP để bypass CORS khi chạy trên GitHub Pages (https://)
+  var cbName = 'cb_' + Date.now();
+  var timeoutId = setTimeout(function() {
+    window[cbName] = null;
+    setStatus('Lỗi kết nối', false);
+    $('error-area').innerHTML = '<div class="error-box">Không nhận được phản hồi sau 15s. Kiểm tra lại URL Apps Script và quyền truy cập (Anyone).</div>';
+  }, 15000);
+
+  window[cbName] = function(data) {
+    clearTimeout(timeoutId);
+    window[cbName] = null;
+    var old = document.getElementById('jsonp-script');
+    if (old) old.parentNode.removeChild(old);
+    $('setup-box').style.display = 'none';
+    processData(data);
+    setStatus('Realtime · cập nhật tự động', true);
+    startCountdown();
+  };
+
+  var old = document.getElementById('jsonp-script');
+  if (old) old.parentNode.removeChild(old);
+  var s = document.createElement('script');
+  s.id = 'jsonp-script';
+  s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cbName + '&_t=' + Date.now();
+  s.onerror = function() {
+    clearTimeout(timeoutId);
+    window[cbName] = null;
+    setStatus('Lỗi kết nối', false);
+    $('error-area').innerHTML = '<div class="error-box">Không tải được script. Kiểm tra URL Apps Script.</div>';
+  };
+  document.head.appendChild(s);
 }
 
 function startCountdown() {
