@@ -101,7 +101,7 @@
     </div>
   </div>
 
-  <div class="setup-box" id="setup-box">
+  <div class="setup-box" id="setup-box" style="display:none">
     <h2>Kết nối với Google Sheets</h2>
     <p>Dán URL Web App từ Google Apps Script vào đây để dashboard tự động lấy dữ liệu realtime mỗi 30 giây.</p>
     <ol>
@@ -196,22 +196,26 @@ var allCases = [];
 var countdown = 30;
 var timer;
 
+var HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbxzXtDLnrFIsleteoNtTGTqFYIxa7Ddurm2WHdlGNHvL68qheFq4jMx0o5heERbgC09ZQ/exec';
+
 function $(id) { return document.getElementById(id); }
 
 function loadStoredUrl() {
-  var saved = localStorage.getItem('ln_api_url');
-  if (saved) { $('api-url').value = saved; }
+  var input = $('api-url');
+  try { var saved = localStorage.getItem('ln_api_url'); if (saved) input.value = saved; } catch(e){}
+  if (!input.value) input.value = HARDCODED_URL;
 }
 
 function saveAndFetch() {
-  var url = $('api-url').value.trim();
-  if (!url) return;
-  localStorage.setItem('ln_api_url', url);
+  var url = $('api-url').value.trim() || HARDCODED_URL;
+  try { localStorage.setItem('ln_api_url', url); } catch(e){}
   fetchData();
 }
 
 function getApiUrl() {
-  return $('api-url').value.trim() || localStorage.getItem('ln_api_url') || '';
+  var fromInput = $('api-url').value.trim();
+  if (fromInput) return fromInput;
+  try { return localStorage.getItem('ln_api_url') || HARDCODED_URL; } catch(e){ return HARDCODED_URL; }
 }
 
 function setStatus(text, ok) {
@@ -226,7 +230,7 @@ function fetchData() {
   setStatus('Đang tải...', null);
   $('error-area').innerHTML = '';
 
-  fetch(url)
+  fetch(url, { redirect: 'follow', mode: 'cors' })
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -239,7 +243,7 @@ function fetchData() {
     })
     .catch(function(err) {
       setStatus('Lỗi kết nối', false);
-      $('error-area').innerHTML = '<div class="error-box">Không kết nối được: ' + err.message + '<br>Kiểm tra lại URL và quyền truy cập (Anyone).</div>';
+      $('error-area').innerHTML = '<div class="error-box">Không kết nối được: ' + err.message + '<br>Thử mở dashboard bằng Chrome hoặc dùng extension <b>Web Server for Chrome</b> thay vì mở file:// trực tiếp.</div>';
     });
 }
 
@@ -437,11 +441,7 @@ function renderTable() {
 }
 
 loadStoredUrl();
-if (getApiUrl()) {
-  fetchData();
-} else {
-  $('pulse-dot').style.background = '#888780';
-}
+fetchData();
 </script>
 </body>
 </html>
