@@ -97,7 +97,7 @@
     <div class="header-right">
       <div class="pulse" id="pulse-dot"></div>
       <span class="status-text" id="status-text">Chưa kết nối</span>
-      <button class="btn-refresh" onclick="fetchData()">↻ Làm mới</button>
+      <button class="btn-refresh" id="btn-refresh" onclick="fetchData()">↻ Làm mới</button>
     </div>
   </div>
 
@@ -223,26 +223,37 @@ function setStatus(text, ok) {
   $('pulse-dot').style.background = ok ? '#1baf7a' : (ok === null ? '#eda100' : '#e34948');
 }
 
+var isFetching = false;
+
 function fetchData() {
   var url = getApiUrl();
   if (!url) { setStatus('Chưa có URL', false); return; }
+
+  // Ngăn chặn gọi fetch khi đang trong quá trình fetch trước đó
+  if (isFetching) return;
+
+  isFetching = true;
+  var btn = $('btn-refresh');
+  if (btn) btn.disabled = true;
+
+  // Hủy bỏ fetch cũ
+  clearFetch();
 
   setStatus('Đang tải...', null);
   $('error-area').innerHTML = '';
 
   // Dùng JSONP để bypass CORS khi chạy trên GitHub Pages (https://)
   var cbName = 'cb_' + Date.now();
+  window._currentCbName = cbName;
   var timeoutId = setTimeout(function() {
-    window[cbName] = null;
+    onFetchComplete();
     setStatus('Lỗi kết nối', false);
     $('error-area').innerHTML = '<div class="error-box">Không nhận được phản hồi sau 15s. Kiểm tra lại URL Apps Script và quyền truy cập (Anyone).</div>';
   }, 15000);
+  window._currentTimeoutId = timeoutId;
 
   window[cbName] = function(data) {
-    clearTimeout(timeoutId);
-    window[cbName] = null;
-    var old = document.getElementById('jsonp-script');
-    if (old) old.parentNode.removeChild(old);
+    onFetchComplete();
     $('setup-box').style.display = 'none';
     processData(data);
     setStatus('Realtime · cập nhật tự động', true);
@@ -255,12 +266,31 @@ function fetchData() {
   s.id = 'jsonp-script';
   s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cbName + '&_t=' + Date.now();
   s.onerror = function() {
-    clearTimeout(timeoutId);
-    window[cbName] = null;
+    onFetchComplete();
     setStatus('Lỗi kết nối', false);
     $('error-area').innerHTML = '<div class="error-box">Không tải được script. Kiểm tra URL Apps Script.</div>';
   };
   document.head.appendChild(s);
+}
+
+function clearFetch() {
+  if (window._currentTimeoutId) {
+    clearTimeout(window._currentTimeoutId);
+    window._currentTimeoutId = null;
+  }
+  if (window._currentCbName) {
+    window[window._currentCbName] = null;
+    window._currentCbName = null;
+  }
+  var oldScript = document.getElementById('jsonp-script');
+  if (oldScript && oldScript.parentNode) oldScript.parentNode.removeChild(oldScript);
+}
+
+function onFetchComplete() {
+  isFetching = false;
+  clearFetch();
+  var btn = $('btn-refresh');
+  if (btn) btn.disabled = false;
 }
 
 function startCountdown() {
