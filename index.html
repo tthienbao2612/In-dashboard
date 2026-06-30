@@ -279,9 +279,10 @@ function startCountdown() {
 
 function processData(data) {
   var now = new Date(data.lastUpdated);
+  if (isNaN(now.getTime())) now = new Date();
   $('kpi-time').textContent = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
 
-  var cases = parseCases(data.cases || []);
+  var cases = parseCases(Array.isArray(data.cases) ? data.cases : (Array.isArray(data) ? data : []));
   allCases = cases;
 
   var total = cases.length;
@@ -316,15 +317,16 @@ function formatDate(val) {
 
 function parseCases(raw) {
   return raw.map(function(row) {
+    var isArray = Array.isArray(row);
     return {
-      stt: row[0] || '',
-      date: formatDate(row[1]),
-      channel: row[2] || '',
-      ticket: row[3] || '',
-      lang: row[4] || '',
-      desc: row[7] || '',
-      category: row[9] || '',
-      status: row[10] || '',
+      stt: isArray ? row[0] || '' : row.stt || row.STT || '',
+      date: formatDate(isArray ? row[1] : row.date || row.Date || ''),
+      channel: isArray ? row[2] || '' : row.channel || row.Channel || '',
+      ticket: isArray ? row[3] || '' : row.ticket || row.Ticket || '',
+      lang: isArray ? row[4] || '' : row.lang || row.langue || row.language || row.Language || '',
+      desc: isArray ? row[7] || '' : row.desc || row.description || row.desciption || '',
+      category: isArray ? row[9] || '' : row.category || row.Category || '',
+      status: isArray ? row[10] || '' : row.status || row.Status || '',
       raw: row
     };
   }).filter(function(c){ return c.date || c.ticket; });
